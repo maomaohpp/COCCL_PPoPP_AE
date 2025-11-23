@@ -1,0 +1,1 @@
+/usr/bin/g++ -fPIC -shared -Wl,-soname,libgpu_ans.so -o lib/libgpu_ans.so @CMakeFiles/gpu_ans.dir/objects1.rsp @CMakeFiles/gpu_ans.dir/linkLibs.rsp -L"/usr/local/cuda-12.6/targets/x86_64-linux/lib/stubs" -L"/usr/local/cuda-12.6/targets/x86_64-linux/lib"

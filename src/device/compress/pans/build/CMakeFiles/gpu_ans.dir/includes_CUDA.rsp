@@ -1,0 +1,1 @@
+-I"/usr/local/cuda-12.6/include" -I"/home/konghr/liuxc/coccl-zfp/src/device/compress/pans" -I"/home/konghr/liuxc/coccl-zfp/src/device/compress/pans/src" -I"/home/konghr/liuxc/coccl-zfp/src/device/compress/pans/include"

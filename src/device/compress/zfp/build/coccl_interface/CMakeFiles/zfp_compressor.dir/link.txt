@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O3 -DNDEBUG -shared -Wl,-soname,libzfp_compressor.so -o ../lib/libzfp_compressor.so CMakeFiles/zfp_compressor.dir/zfp.c.o  -Wl,-rpath,/data/home/scyb226/lxc/coccl-comm-speed/src/device/compress/zfp/build/lib: ../lib/libzfp.so.1.0.1 -lm /data/apps/cuda/12.4/lib64/libcudart.so -lstdc++
