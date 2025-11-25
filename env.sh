@@ -1,17 +1,23 @@
-module load cuda/12.4
+# module load cuda/12.4
 
-export CUDA_PATH=/data/apps/cuda/12.4
-export PATH=$CUDA_PATH/bin:$PATH
-export CUDACXX=$CUDA_PATH/bin/nvcc
-export NVHPC_CUDA_HOME=/data/apps/cuda/12.4
-export LD_LIBRARY_PATH=$CUDA_PATH/lib64/:$LD_LIBRARY_PATH
+CUDA_PATH=$1
+MPI_PATH=$2
+COCCL_PATH=$3
 
-export NCCL_HOME=/data/home/scyb226/lxc/coccl-comm-speed-overlap/build
+echo "$CUDA_PATH,$MPI_PATH,$COCCL_PATH"
+
+export CUDA_HOME=$CUDA_PATH
+export PATH=$CUDA_HOME/bin:$PATH
+export CUDACXX=$CUDA_HOME/bin/nvcc
+export NVHPC_CUDA_HOME=$CUDA_HOME
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64/:$LD_LIBRARY_PATH
+
+export NCCL_HOME=$COCCL_PATH/build
 export LD_LIBRARY_PATH=$NCCL_HOME/lib:$LD_LIBRARY_PATH
 export C_INCLUDE_PATH=$NCCL_HOME/include:$C_INCLUDE_PATH
 export CPLUS_INCLUDE_PATH=$NCCL_HOME/include:$CPLUS_INCLUDE_PATH
 
-export MPI_HOME=/data/home/scyb226/lxc/openmpi
+export MPI_HOME=$MPI_PATH
 export PATH=$MPI_HOME/bin:$PATH
 export LD_LIBRARY_PATH=$MPI_HOME/lib:$LD_LIBRARY_PATH
 export MANPATH=$MPI_HOME/share/man:$MANPATH

@@ -1,4 +1,8 @@
-source env.sh
+CUDA_PATH=$1
+MPI_PATH=$2
+COCCL_PATH=$3
+
+source env.sh $CUDA_PATH $MPI_PATH $COCCL_PATH
 make -j src.build NVCC_GENCODE="-gencode=arch=compute_90,code=sm_90"
 cp src/device/compress/zfp/build/lib/libzfp_compressor.so build/obj/device/compress/libcompress/
 cd tests/coccl-tests
