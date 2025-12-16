@@ -1,1 +1,0 @@
-/usr/bin/g++ -fPIC -shared -Wl,-soname,libpans.so -o lib/libpans.so @CMakeFiles/pans.dir/objects1.rsp @CMakeFiles/pans.dir/linkLibs.rsp -L"/usr/local/cuda-12.6/targets/x86_64-linux/lib/stubs" -L"/usr/local/cuda-12.6/targets/x86_64-linux/lib"

@@ -160,6 +160,10 @@ bool enableAllReduceComp = false;
 bool enableAllGatherComp = false;
 bool enableReduceScatterComp = false;
 bool enableSendRecvComp = false;
+bool enableCheck = false;
+bool enableTimer = false;
+NCCL_PARAM(CompEnableThreshold, "COMPRESS_ENABLE_THRESHOLD", 0);
+
 
 static void loadCompressors(const ncclComm_t comm) {
     // Load AllCompressors
@@ -173,7 +177,7 @@ static void loadCompressors(const ncclComm_t comm) {
     const char* compLibPath = getenv("NCCL_COMPRESSORS_LIB_PATH");
     for(int i = 0; i < numComp; i++){        
         // printf("load Compressos %s\n", compName[i]);
-        COMPRESSLIB_PATH(compLibPath, compName[i]);
+        COMPRESSLIB_PATH(compLibPath, compName[i]);         
         void* compLibHandle = tryOpenCompressorLib(compLibName);  
         ncclCompElem* compElem = (ncclCompElem*) malloc(sizeof(ncclCompElem));   
         compElem->compressor = (ncclCompressor_t*) dlsym(compLibHandle, compName[i]); 
@@ -219,6 +223,16 @@ static void loadCompressors(const ncclComm_t comm) {
         LOADCOMPRESSOR("NCCL_SENDRECV_COMPRESSORS", SR);
         LOADCOMPRESSOR("NCCL_SENDRECV_BWD_COMPRESSORS", SR, BWD);
     }
+    const char* isCheck = getenv("NCCL_ENABLE_CHECK");
+    if(isCheck && strcmp(isCheck, "1") == 0){
+        enableCheck = true;
+    }
+    const char* isTimer = getenv("NCCL_ENABLE_TIMER");
+    if(isTimer && strcmp(isTimer, "1") == 0){
+        enableTimer = true;
+    }
+    int64_t CompEnableThreshold = (int64_t) ncclParamCompEnableThreshold();
+
     pthread_mutex_unlock(&compressorLibLock);
 
 } 
@@ -240,11 +254,11 @@ ncclResult_t ncclCompressInit(const ncclComm_t comm){
 #define DOCOMPRESS(ALGO, ...)                                                                                                 \
     for(ncclCompElem* compElem = (compList##ALGO##__VA_ARGS__).head; compElem != nullptr; compElem = compElem->next){         \
         CUDACHECK(compElem->compressor->compress(orgbuff, compbuff, orgChunkCount, orgDayatype,                               \
-            compChunkCount, compDatatype, numChunks, compElem->compConfig, NULL, stream));   \
+            compChunkCount, compDatatype, numChunks, rank, compElem->compConfig, NULL, stream));   \
     }
 // compress
 ncclResult_t ncclCompress(const void* orgbuff, void** compbuff, const size_t orgChunkCount, ncclDataType_t orgDayatype,
-    size_t* compChunkCount, ncclDataType_t* compDatatype, const size_t numChunks, ncclCommOp_t commOp, cudaStream_t stream)
+    size_t* compChunkCount, ncclDataType_t* compDatatype, const size_t numChunks, const int rank, ncclCommOp_t commOp, cudaStream_t stream)
 {
     int cudaDev;
     CUDACHECK(cudaGetDevice(&cudaDev));
@@ -390,7 +404,7 @@ ncclResult_t cocclDecompReduceComp(const void* compbuff, void** recompbuff, cons
     NCCLCHECK(ncclReduceChunk(reduceTempbuff, orgChunkCount, reduceTempbuff, orgDayatype, numChunks, stream));
 
     CUDACHECK(compElem->compressor->compress(reduceTempbuff, recompbuff, orgChunkCount, orgDayatype,                              
-        reCompChunkCount, reCompDatatype, 1, compElem->compConfig, NULL, stream)); 
+        reCompChunkCount, reCompDatatype, 1, 0, compElem->compConfig, NULL, stream)); 
     
     return ncclSuccess;
 }

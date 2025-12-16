@@ -1,76 +1,59 @@
-# NCCL
-
-Optimized primitives for inter-GPU communication.
-
-## Introduction
-
-NCCL (pronounced "Nickel") is a stand-alone library of standard communication routines for GPUs, implementing all-reduce, all-gather, reduce, broadcast, reduce-scatter, as well as any send/receive based communication pattern. It has been optimized to achieve high bandwidth on platforms using PCIe, NVLink, NVswitch, as well as networking using InfiniBand Verbs or TCP/IP sockets. NCCL supports an arbitrary number of GPUs installed in a single node or across multiple nodes, and can be used in either single- or multi-process (e.g., MPI) applications.
-
-For more information on NCCL usage, please refer to the [NCCL documentation](https://docs.nvidia.com/deeplearning/sdk/nccl-developer-guide/index.html).
+# COCCL_PPoPP_AE
 
 ## Build
-
-Note: the official and tested builds of NCCL can be downloaded from: https://developer.nvidia.com/nccl. You can skip the following build steps if you choose to use the official builds.
 
 To build the library :
 
 ```shell
-$ cd nccl
-$ make -j src.build
+git clone https://github.com/maomaohpp/COCCL_PPoPP_AE.git
+chmod 777 -R COCCL_PPoPP_AE
+cd COCCL_PPoPP_AE
+bash build.sh /path/to/cuda \
+/path/to/mpi \
+/path/to/COCCL_PPoPP_AE \
+"-gencode=arch=compute_90,code=sm_90"
+# use the corresponding NVCC_GENCODE for your hardware
 ```
 
-If CUDA is not installed in the default /usr/local/cuda path, you can define the CUDA path with :
+## Intrgrated with Framework
 
-```shell
-$ make src.build CUDA_HOME=<path to cuda install>
-```
+Please install the necessary environment dependencies for training frameworks such as [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) or [PyTorch](https://github.com/pytorch/pytorch).
 
-NCCL will be compiled and installed in `build/` unless `BUILDDIR` is set.
+To switch from the NCCL library to the COCCL library, follow the steps below:
 
-By default, NCCL is compiled for all supported architectures. To accelerate the compilation and reduce the binary size, consider redefining `NVCC_GENCODE` (defined in `makefiles/common.mk`) to only include the architecture of the target platform :
-```shell
-$ make -j src.build NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70"
-```
+1. Confirm whether the NCCL library used by PyTorch is a dynamic library.
 
-## Install
+   - Confirm the location of the PyTorch library.
+     If you know that PyTorch is installed in a specific directory, you can search directly within that directory. For example, after confirming that PyTorch resides in `/usr/local/lib`, running the query command successfully pinpointed the exact path to the `libtorch.so` file, as shown below:
 
-To install NCCL on the system, create a package then install it as root.
+     ```bash
+     find /usr/local/lib -name "libtorch*"
+     # The example results are as follows:
+     /usr/local/lib/python3.10/dist-packages/torch/lib/libtorchcuda.so
+     /usr/local/lib/python3.10/dist-packages/torch/lib/libtorch.so
+     /usr/local/lib/python3.10/dist-packages/torch/lib/libtorchbindtest.so
+     ```
 
-Debian/Ubuntu :
-```shell
-$ # Install tools to create debian packages
-$ sudo apt install build-essential devscripts debhelper fakeroot
-$ # Build NCCL deb package
-$ make pkg.debian.build
-$ ls build/pkg/deb/
-```
+   - Use the `ldd` command to inspect the PyTorch library’s dependency on the NCCL library.
 
-RedHat/CentOS :
-```shell
-$ # Install tools to create rpm packages
-$ sudo yum install rpm-build rpmdevtools
-$ # Build NCCL rpm package
-$ make pkg.redhat.build
-$ ls build/pkg/rpm/
-```
+     ```bash
+     ldd libtorch.so | grep nccl
+     ```
 
-OS-agnostic tarball :
-```shell
-$ make pkg.txz.build
-$ ls build/pkg/txz/
-```
+     If the command returns results in the following format, it indicates that PyTorch depends on NCCL as a dynamic library. You may then proceed to configure COCCL according to the subsequent steps.
 
-## Tests
+     ```bash
+     libnccl.so.2=>/usr/lib/x86_64-linux-gnu/libnccl.so.2(0x00007feab3b27000)
+     ```
 
-Tests for NCCL are maintained separately at https://github.com/nvidia/nccl-tests.
+     If the command returns no results, this indicates that PyTorch relies on NCCL as a static (non-dynamic) library and therefore cannot be switched to COCCL. To proceed with COCCL configuration, you must use a PyTorch version that depends on the NCCL dynamic library.
 
-```shell
-$ git clone https://github.com/NVIDIA/nccl-tests.git
-$ cd nccl-tests
-$ make
-$ ./build/all_reduce_perf -b 8 -e 256M -f 2 -g <ngpus>
-```
+2. Before running the training script, please specify the paths to COCCL and the compressor dynamic libraries in COCCL_PPoPP_AE/training_scripts/training_envs.sh.
 
-## Copyright
-
-All source code and accompanying documentation is copyright (c) 2015-2020, NVIDIA CORPORATION. All rights reserved.
+   ```bash
+   #!/bin/bash
+   export CUDA_PATH=/path/to/cuda
+   export COCCL_PATH=/path/to/COCCL_PPoPP_AE
+   export MEGATRON_PATH=/path/to/Megatron
+   export DATASET_PATH=/path/to/dataset
+   ```

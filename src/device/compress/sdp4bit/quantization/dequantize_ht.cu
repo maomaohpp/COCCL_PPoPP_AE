@@ -9,7 +9,7 @@
 namespace cg = cooperative_groups;
 
 template <typename T, int numBits, dequantize::Type qType, int unroll, int threads>
-__global__ void dequantize_kernel(T* __restrict__ dequant_data,
+__global__ void dequantize_ht_kernel(T* __restrict__ dequant_data,
                                   const int8_t* __restrict__ q_data,
                                   const float* __restrict__ q_params,
                                   int elems_per_group,
@@ -17,16 +17,16 @@ __global__ void dequantize_kernel(T* __restrict__ dequant_data,
                                   int64_t elems_per_chunk_padding,
                                   int64_t total_elems)
 {
-    dequantize::to_global<T, numBits, qType, unroll, threads>(
+    dequantize::to_global_ht<T, numBits, qType, unroll, threads>(
         dequant_data, q_data, q_params, elems_per_group, elems_per_chunk, elems_per_chunk_padding, total_elems);
 }
 
-#define LAUNCH_DEQUANT_KERNEL(num_bits, q_type)                                          \
-    dequantize_kernel<T, num_bits, q_type, unroll, threads><<<grid, block, 0, stream>>>( \
+#define LAUNCH_DEQUANT_HT_KERNEL(num_bits, q_type)                                          \
+    dequantize_ht_kernel<T, num_bits, q_type, unroll, threads><<<grid, block, 0, stream>>>( \
         dequant_data, q_data, q_params, elems_per_group, elems_per_chunk, elems_per_chunk_padding, total_elems);
 
 template <typename T>
-void launch_dequantize_kernel(T* dequant_data,
+void launch_dequantize_ht_kernel(T* dequant_data,
                               const int8_t* q_data,
                               const float* q_params,
                               quantize::Type q_type,
@@ -47,17 +47,17 @@ void launch_dequantize_kernel(T* dequant_data,
     // TODO(cmikeh2): It may make sense to tune unroll, there is perf benefit for large
     // problem sizes with this large unroll value.
     if (num_bits == 8 && q_type == quantize::Type::Symmetric) {
-        LAUNCH_DEQUANT_KERNEL(8, quantize::Type::Symmetric);
+        LAUNCH_DEQUANT_HT_KERNEL(8, quantize::Type::Symmetric);
     } else if (num_bits == 8 && q_type == quantize::Type::Asymmetric) {
-        LAUNCH_DEQUANT_KERNEL(8, quantize::Type::Asymmetric);
+        LAUNCH_DEQUANT_HT_KERNEL(8, quantize::Type::Asymmetric);
     } else if (num_bits == 4 && q_type == quantize::Type::Symmetric) {
-        LAUNCH_DEQUANT_KERNEL(4, quantize::Type::Symmetric);
+        LAUNCH_DEQUANT_HT_KERNEL(4, quantize::Type::Symmetric);
     } else if (num_bits == 4 && q_type == quantize::Type::Asymmetric) {
-        LAUNCH_DEQUANT_KERNEL(4, quantize::Type::Asymmetric);
+        LAUNCH_DEQUANT_HT_KERNEL(4, quantize::Type::Asymmetric);
     }
 }
 
-template void launch_dequantize_kernel(__half* dequant_data,
+template void launch_dequantize_ht_kernel(__half* dequant_data,
                                        const int8_t* q_data,
                                        const float* q_params,
                                        quantize::Type q_type,
@@ -67,7 +67,7 @@ template void launch_dequantize_kernel(__half* dequant_data,
                                        int64_t total_elems,
                                        cudaStream_t stream);
 
-template void launch_dequantize_kernel(float* dequant_data,
+template void launch_dequantize_ht_kernel(float* dequant_data,
                                        const int8_t* q_data,
                                        const float* q_params,
                                        quantize::Type q_type,
@@ -78,7 +78,7 @@ template void launch_dequantize_kernel(float* dequant_data,
                                        cudaStream_t stream);
 
 #ifdef BF16_AVAILABLE
-template void launch_dequantize_kernel(__nv_bfloat16* dequant_data,
+template void launch_dequantize_ht_kernel(__nv_bfloat16* dequant_data,
                                        const int8_t* q_data,
                                        const float* q_params,
                                        quantize::Type q_type,

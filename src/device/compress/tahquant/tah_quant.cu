@@ -26,7 +26,7 @@ struct tahQuantConfig{
     bool hadamard = false;
     bool pivotSwap = false;
     quantize::Type quantType = quantize::Type::Symmetric;
-    // 
+
 } ;
 inline int ncclTypeSize(ncclDataType_t type) {
     switch (type) {
@@ -122,7 +122,7 @@ __hidden void parseTahQuantConfig(const char* configFile, void** compConfig, int
     }
 
 cudaError_t launchTahQuant(const void* orgbuff, void** compbuff, const size_t orgChunkCount, ncclDataType_t orgDayatype,
-                                  size_t* compChunkCount, ncclDataType_t* compDatatype, const size_t numChunks, void* config, 
+                                  size_t* compChunkCount, ncclDataType_t* compDatatype, const size_t numChunks, const int rank, void* config, 
                                   cudaMemPool_t compMemPool, cudaStream_t stream)
 {
     int groupCount = 128;

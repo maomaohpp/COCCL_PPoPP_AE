@@ -307,39 +307,11 @@ void launch_dequant_reduce_quant(int8_t* reduced_data,
                     LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(8, 4, -1, quantize::Type::Symmetric);
                 }
             }
+
+
         }
     } else if (quant_type == quantize::Type::Asymmetric) {
-        if (in_num_bits == 4) {
-            if (out_num_bits == 8){
-                if (num_gpus == 1) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 8, 1, quantize::Type::Asymmetric);
-                } else if (num_gpus == 2) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 8, 2, quantize::Type::Asymmetric);
-                } else if (num_gpus == 4) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 8, 4, quantize::Type::Asymmetric);
-                } else if (num_gpus == 8) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 8, 8, quantize::Type::Asymmetric);
-                } else if (num_gpus == 16) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 8, 16, quantize::Type::Asymmetric);
-                } else {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 8, -1, quantize::Type::Asymmetric);
-                }
-            } else if (out_num_bits == 4) {
-                if (num_gpus == 1) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 4, 1, quantize::Type::Asymmetric);
-                } else if (num_gpus == 2) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 4, 2, quantize::Type::Asymmetric);
-                } else if (num_gpus == 4) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 4, 4, quantize::Type::Asymmetric);
-                } else if (num_gpus == 8) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 4, 8, quantize::Type::Asymmetric);
-                } else if (num_gpus == 16) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 4, 16, quantize::Type::Asymmetric);
-                } else {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(4, 4, -1, quantize::Type::Asymmetric);
-                }
-            }
-        } else if (in_num_bits == 8) {
+        if (in_num_bits == 8) {
             if (out_num_bits == 8){
                 if (num_gpus == 1) {
                     LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(8, 8, 1, quantize::Type::Asymmetric);
@@ -354,21 +326,13 @@ void launch_dequant_reduce_quant(int8_t* reduced_data,
                 } else {
                     LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(8, 8, -1, quantize::Type::Asymmetric);
                 }
-            } else if (out_num_bits == 4) {
-                if (num_gpus == 1) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(8, 4, 1, quantize::Type::Asymmetric);
-                } else if (num_gpus == 2) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(8, 4, 2, quantize::Type::Asymmetric);
-                } else if (num_gpus == 4) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(8, 4, 4, quantize::Type::Asymmetric);
-                } else if (num_gpus == 8) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(8, 4, 8, quantize::Type::Asymmetric);
-                } else if (num_gpus == 16) {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(8, 4, 16, quantize::Type::Asymmetric);
-                } else {
-                    LAUNCH_DEQUANT_REDUCE_QUANT_IMPL(8, 4, -1, quantize::Type::Asymmetric);
-                }
             }
+            else{
+                assert(false);
+            }
+        }
+        else {
+            assert(false);
         }
     }
 }
