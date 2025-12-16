@@ -32,7 +32,7 @@ ncclResult_t ncclAllGatherComp(const void* sendbuff, void* recvbuff, size_t send
   bool mayUpdateBuff = aGbuff == nullptr || totalSendBytes > aGMaxSendBytes;
 
   NCCLCHECK(ncclCompress(sendbuff, mayUpdateBuff ? &recvbuff: &aGbuff, 
-            sendcount, datatype, &compSendCount, &compDatatype, 1, ncclCommOp_t::AllGather, stream));
+            sendcount, datatype, &compSendCount, &compDatatype, 1, comm->rank, ncclCommOp_t::AllGather, stream));
   // update the hold comp buffer
   if(mayUpdateBuff){
     aGMaxSendBytes = totalSendBytes;
@@ -41,6 +41,10 @@ ncclResult_t ncclAllGatherComp(const void* sendbuff, void* recvbuff, size_t send
     CUDACHECK(cudaMemcpy(aGbuff, recvbuff, compSendCount * ncclTypeSize(compDatatype), cudaMemcpyDeviceToDevice));
     CUDACHECK(cudaDeviceSynchronize());
   }
+
+  // INFO(NCCL_INIT, "AllgatherComp_datatype_%d_totalcounts_%zu_totalbytes_%zuMB_compSendBytes_%zuMB_rank_%d_nRanks_%d_sendbuff_%p_recvbuff_%p_diff_%p_stream_%p", datatype, sendcount * comm->nRanks, 
+  //   sendcount * comm->nRanks * ncclTypeSize(datatype)/ 1024 /1024, compSendCount * comm->nRanks * ncclTypeSize(compDatatype) / 1024/ 1024, 
+  //   comm->rank, comm->nRanks, sendbuff, recvbuff, (char*)sendbuff - comm->rank * ncclTypeSize(datatype) * sendcount,(void*)stream);
   // Gather
   struct ncclInfo info = { ncclFuncAllGather, "AllGather",
     aGbuff, aGbuff, compSendCount, compDatatype, ncclSum, 0, comm, stream, /* Args */
@@ -71,6 +75,7 @@ ncclResult_t ncclAllGatherCompOverlap(const void* sendbuff, void* recvbuff, size
 
   pipelineDepth = ncclParamPipelineDepth();
 
+
   if(pipelineDepth < 2){
     NCCLCHECK(ncclAllGatherComp(sendbuff, recvbuff, sendcount, datatype, comm, stream));
   }else{
@@ -99,7 +104,7 @@ ncclResult_t ncclAllGatherCompOverlap(const void* sendbuff, void* recvbuff, size
       // void* sendCompbuff = (char*) aGbuff + i * compSendCount  * ncclTypeSize(compDatatype);
 
       NCCLCHECK(ncclCompress(sbuff, &sendCompbuff, 
-          sendcount / pipelineDepth, datatype, &compSendCount, &compDatatype, 1, ncclCommOp_t::AllGather, AGcompStream));
+          sendcount / pipelineDepth, datatype, &compSendCount, &compDatatype, 1, comm->rank, ncclCommOp_t::AllGather, AGcompStream));
       CUDACHECK(cudaEventRecord(AGcompEvent, AGcompStream));  
       CUDACHECK(cudaStreamWaitEvent(AGcommStream, AGcompEvent, 0));
       void* recvCompbuff = (char*) aGbuff + sendcount * ncclTypeSize(datatype) + i * compSendCount * comm->nRanks * ncclTypeSize(compDatatype);
@@ -144,7 +149,7 @@ ncclResult_t ncclAllGatherCompTwoShot(const void* sendbuff, void* recvbuff, size
   bool mayUpdateBuff = aGbuff == nullptr || totalSendBytes > aGMaxSendBytes;
   
   // NCCLCHECK(ncclCompress(sendbuff, &sendCompbuff, sendcount, datatype , &compSendCount, &compDatatype, 1, ncclCommOp_t::AllGather, stream));
-  NCCLCHECK(ncclCompress(sendbuff, mayUpdateBuff ? &recvbuff : &aGbuff, sendcount, datatype , &compSendCount, &compDatatype, 1, ncclCommOp_t::AllGather, stream));
+  NCCLCHECK(ncclCompress(sendbuff, mayUpdateBuff ? &recvbuff : &aGbuff, sendcount, datatype , &compSendCount, &compDatatype, 1, comm->rank, ncclCommOp_t::AllGather, stream));
 
   if(mayUpdateBuff){
     aGMaxSendBytes = totalSendBytes;
@@ -215,7 +220,7 @@ ncclResult_t  ncclAllToAllComp(const void* sendbuff, void* recvbuff, size_t send
   bool mayUpdateBuff = a2Abuff == nullptr || totalSendBytes > a2AMaxSendSize;
   // reuse buff may have some wrong, some data may not send/recv sometimes
   // NCCLCHECK(ncclCompress(sendbuff, &sendCompbuff, sendcount, datatype, &compSendCount, &compDatatype, comm->nRanks, ncclCommOp_t::AlltoAll, stream));
-  NCCLCHECK(ncclCompress(sendbuff, mayUpdateBuff ?  &recvbuff : &a2Abuff, sendcount, datatype, &compSendCount, &compDatatype, comm->nRanks, ncclCommOp_t::AlltoAll, stream));
+  NCCLCHECK(ncclCompress(sendbuff, mayUpdateBuff ?  &recvbuff : &a2Abuff, sendcount, datatype, &compSendCount, &compDatatype, comm->nRanks, comm->rank, ncclCommOp_t::AlltoAll, stream));
 
   // if(mayUpdateBuff){
   //   a2AMaxSendSize = totalSendBytes;
@@ -271,7 +276,7 @@ ncclResult_t  ncclAlltoAllCompOverlap(const void* sendbuff, void* recvbuff, size
       void* sbuff = (char*)sendbuff + i * sendcount / pipelineDepth * comm->nRanks * ncclTypeSize(datatype);
       void* sendCompbuff = (char*) a2Abuff + i * sendcount / pipelineDepth * comm->nRanks  * ncclTypeSize(datatype);
 
-      NCCLCHECK(ncclCompress(sbuff, &sendCompbuff, sendcount / pipelineDepth, datatype, &compSendCount, &compDatatype, comm->nRanks, ncclCommOp_t::AlltoAll, A2AcompStream));
+      NCCLCHECK(ncclCompress(sbuff, &sendCompbuff, sendcount / pipelineDepth, datatype, &compSendCount, &compDatatype, comm->nRanks, comm->rank, ncclCommOp_t::AlltoAll, A2AcompStream));
       CUDACHECK(cudaEventRecord(A2AcompEvent, A2AcompStream));  
       CUDACHECK(cudaStreamWaitEvent(A2AcommStream, A2AcompEvent, 0));
       void* recvCompbuff = (char*) a2Abuff + sendcount * comm->nRanks * ncclTypeSize(datatype) + i * compSendCount * comm->nRanks * ncclTypeSize(compDatatype);
@@ -309,7 +314,7 @@ ncclResult_t ncclReduceScatterCompOneShot(const void* sendbuff, void* recvbuff, 
   if(mayUpdateBuff){
     rSMaxSendSize = totalSendBytes;
     void* tempCompbuff = nullptr;
-    NCCLCHECK(ncclCompress(sendbuff, &tempCompbuff, recvcount, datatype, &compSendCount, &compDatatype, comm->nRanks, 
+    NCCLCHECK(ncclCompress(sendbuff, &tempCompbuff, recvcount, datatype, &compSendCount, &compDatatype, comm->nRanks, comm->rank,
       ncclCommOp_t::ReduceScatter, stream));
     size_t compBuffBytes = 2 * compSendCount * comm->nRanks * ncclTypeSize(compDatatype);
     // printf("compBuffBytes")
@@ -319,7 +324,7 @@ ncclResult_t ncclReduceScatterCompOneShot(const void* sendbuff, void* recvbuff, 
     CUDACHECK(cudaFree(tempCompbuff));
   } else {
     // printf("Asdsadasd\n");
-    NCCLCHECK(ncclCompress(sendbuff, &rSbuff, recvcount, datatype, &compSendCount, &compDatatype, comm->nRanks, 
+    NCCLCHECK(ncclCompress(sendbuff, &rSbuff, recvcount, datatype, &compSendCount, &compDatatype, comm->nRanks, comm->rank,
       ncclCommOp_t::ReduceScatter, stream));
   }
 
@@ -370,7 +375,7 @@ ncclResult_t ncclReduceScatterCompOneShotOverlap(const void* sendbuff, void* rec
         void* sbuff = (char*)sendbuff + i * recvcount / pipelineDepth * comm->nRanks * ncclTypeSize(datatype);
         void* sendCompbuff = (char*) rSbuff + i * recvcount / pipelineDepth * comm->nRanks  * ncclTypeSize(datatype);
   
-        NCCLCHECK(ncclCompress(sbuff, &sendCompbuff, recvcount / pipelineDepth, datatype, &compSendCount, &compDatatype, comm->nRanks, ncclCommOp_t::ReduceScatter, RScompStream));
+        NCCLCHECK(ncclCompress(sbuff, &sendCompbuff, recvcount / pipelineDepth, datatype, &compSendCount, &compDatatype, comm->nRanks, comm->rank, ncclCommOp_t::ReduceScatter, RScompStream));
         CUDACHECK(cudaEventRecord(RScompEvent, RScompStream));  
         CUDACHECK(cudaStreamWaitEvent(RScommStream, RScompEvent, 0));
         void* recvCompbuff = (char*) rSbuff + recvcount * comm->nRanks * ncclTypeSize(datatype) + i * compSendCount * comm->nRanks * ncclTypeSize(compDatatype);
@@ -410,7 +415,7 @@ ncclResult_t ncclReduceScatterComp(const void* sendbuff, void* recvbuff, size_t 
   if(mayUpdateBuff){
     rSMaxSendSize = totalSendBytes;
     void* tempCompbuff = nullptr;
-    NCCLCHECK(ncclCompress(sendbuff, &tempCompbuff, recvcount, datatype, &compSendCount, &compDatatype, comm->nRanks, 
+    NCCLCHECK(ncclCompress(sendbuff, &tempCompbuff, recvcount, datatype, &compSendCount, &compDatatype, comm->nRanks, comm->rank, 
     ncclCommOp_t::ReduceScatter, stream));
     size_t compBuffBytes = compSendCount * (comm->nRanks + 2) * ncclTypeSize(compDatatype);
     NCCLCHECK(cocclBuffAlloc(&rSbuff, compBuffBytes, comm));
@@ -418,7 +423,7 @@ ncclResult_t ncclReduceScatterComp(const void* sendbuff, void* recvbuff, size_t 
     CUDACHECK(cudaDeviceSynchronize());
     CUDACHECK(cudaFree(tempCompbuff));
   } else {
-    NCCLCHECK(ncclCompress(sendbuff, &rSbuff, recvcount, datatype, &compSendCount, &compDatatype, comm->nRanks, 
+    NCCLCHECK(ncclCompress(sendbuff, &rSbuff, recvcount, datatype, &compSendCount, &compDatatype, comm->nRanks, comm->rank, 
     ncclCommOp_t::ReduceScatter, stream));
   }
   // void* reduceSendbuf = (char*) compBuff + comm->nRanks * compSendCount * ncclTypeSize(compDatatype);
@@ -497,7 +502,7 @@ ncclResult_t ncclReduceScatterCompTwoShot(const void* sendbuff, void* recvbuff, 
   if(mayUpdateBuff){
     rSMaxSendSize = totalSendBytes;
     void* tempCompbuff = nullptr;
-    NCCLCHECK(ncclCompress(sendbuff, &tempCompbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, 
+    NCCLCHECK(ncclCompress(sendbuff, &tempCompbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, comm->rank,
     ncclCommOp_t::ReduceScatter_Inter, stream));
     size_t compBuffBytes = 2 * compSendCount * (nRanks + nNodes) * ncclTypeSize(compDatatype);
     NCCLCHECK(cocclBuffAlloc(&rSbuff, compBuffBytes, comm));
@@ -507,7 +512,7 @@ ncclResult_t ncclReduceScatterCompTwoShot(const void* sendbuff, void* recvbuff, 
     CUDACHECK(cudaFree(tempCompbuff));
   } else {
     // cudaMemset(compBuff, 0 , 2 * compSendCount * (nRanks + nNodes) * ncclTypeSize(compDatatype));
-    NCCLCHECK(ncclCompress(sendbuff, &rSbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, 
+    NCCLCHECK(ncclCompress(sendbuff, &rSbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, comm->rank, 
     ncclCommOp_t::ReduceScatter_Inter, stream));
   }
 
@@ -577,7 +582,7 @@ ncclResult_t ncclReduceScatterCompTwoShotOverlap(const void* sendbuff, void* rec
   if(mayUpdateBuff){
     rSMaxSendSize = totalSendBytes;
     void* tempCompbuff = nullptr;
-    NCCLCHECK(ncclCompress(sendbuff, &tempCompbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, 
+    NCCLCHECK(ncclCompress(sendbuff, &tempCompbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, comm->rank, 
     ncclCommOp_t::ReduceScatter_Inter, stream));
     size_t compBuffBytes = 2 * compSendCount * (nRanks + nNodes) * ncclTypeSize(compDatatype);
     NCCLCHECK(cocclBuffAlloc(&rSbuff, compBuffBytes, comm));
@@ -589,7 +594,7 @@ ncclResult_t ncclReduceScatterCompTwoShotOverlap(const void* sendbuff, void* rec
       CUDACHECK(cudaEventCreateWithFlags(&mainEvent, cudaEventDefault));
   } else {
     // cudaMemset(compBuff, 0 , 2 * compSendCount * (nRanks + nNodes) * ncclTypeSize(compDatatype));
-    NCCLCHECK(ncclCompress(sendbuff, &rSbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, 
+    NCCLCHECK(ncclCompress(sendbuff, &rSbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, comm->rank, 
       ncclCommOp_t::ReduceScatter_Inter, stream));
   }
 
@@ -703,8 +708,8 @@ ncclResult_t ncclReduceScatterCompTwoShotTLOverlap(const void* sendbuff, void* r
     void* sbuff = (char*)sendbuff + i * recvcount / pipelineDepth * nRanks * ncclTypeSize(datatype);
     void* intraSendCompbuff = (char*) intrabuff + i * recvcount / pipelineDepth * nRanks * ncclTypeSize(datatype);
 
-    NCCLCHECK(ncclCompress(sbuff, &intraSendCompbuff, recvcount / pipelineDepth, datatype, &compSendCount, 
-                              &compDatatype, nRanks, ncclCommOp_t::ReduceScatter_Inter, RScompStream));
+    NCCLCHECK(ncclCompress(sbuff, &intraSendCompbuff, recvcount / pipelineDepth, datatype, &compSendCount,
+                              &compDatatype, nRanks, comm->rank, ncclCommOp_t::ReduceScatter_Inter, RScompStream));
 
     CUDACHECK(cudaEventRecord(RScompEvent, RScompStream));  
     CUDACHECK(cudaStreamWaitEvent(RScommStream, RScompEvent, 0));
@@ -764,7 +769,7 @@ ncclResult_t ncclAllReduceCompOneShot(const void* sendbuff, void* recvbuff, size
   size_t totalSendBytes = count * (comm->nRanks + comm->nRanks * comm->nRanks) * ncclTypeSize(datatype);
   bool mayUpdateBuff = aRbuff == nullptr || totalSendBytes > aRMaxSendSize;
   // NCCLCHECK(ncclCompress(sendbuff, chunkCount, datatype, &sendCompbuff, &compSendCount, &compDatatype, numChunks, stream));
-  NCCLCHECK(ncclCompress(sendbuff, mayUpdateBuff ?  &recvbuff : &aRbuff, chunkCount, datatype, &compSendCount, &compDatatype, comm->nRanks, ncclCommOp_t::AllReduce, stream));
+  NCCLCHECK(ncclCompress(sendbuff, mayUpdateBuff ?  &recvbuff : &aRbuff, chunkCount, datatype, &compSendCount, &compDatatype, comm->nRanks, comm->rank, ncclCommOp_t::AllReduce, stream));
   
   if(mayUpdateBuff){
     aRMaxSendSize = totalSendBytes;
@@ -831,7 +836,7 @@ ncclResult_t ncclAllReduceCompTwoShot(const void* sendbuff, void* recvbuff, size
   // reuse buff may have some wrong, some data may not send/recv sometimes
   // NCCLCHECK(ncclCompress(sendbuff, &sendCompbuff, chunkCount, datatype, &compSendCount, &compDatatype, comm->nRanks, ncclCommOp_t::AllReduce, stream));
   NCCLCHECK(ncclCompress(sendbuff, mayUpdateBuff ?  &recvbuff : &aRbuff, chunkCount, datatype, 
-                            &compSendCount, &compDatatype, comm->nRanks, ncclCommOp_t::AllReduce, stream));
+                            &compSendCount, &compDatatype, comm->nRanks, comm->rank, ncclCommOp_t::AllReduce, stream));
   
   if(mayUpdateBuff){
     aRMaxSendSize = totalSendBytes;
@@ -905,7 +910,7 @@ ncclResult_t ncclAllReduceCompTwoShotOverlap(const void* sendbuff, void* recvbuf
         void* sbuff = (char*)sendbuff + i * recvcount / pipelineDepth * comm->nRanks * ncclTypeSize(datatype);
         void* sendCompbuff = (char*) aRbuff + i * recvcount / pipelineDepth * comm->nRanks  * ncclTypeSize(datatype);
 
-        NCCLCHECK(ncclCompress(sbuff, &sendCompbuff, recvcount / pipelineDepth, datatype, &compSendCount, &compDatatype, comm->nRanks, ncclCommOp_t::AllReduce, ARcompStream));
+        NCCLCHECK(ncclCompress(sbuff, &sendCompbuff, recvcount / pipelineDepth, datatype, &compSendCount, &compDatatype, comm->nRanks, comm->rank, ncclCommOp_t::AllReduce, ARcompStream));
         CUDACHECK(cudaEventRecord(ARcompEvent, ARcompStream));  
         CUDACHECK(cudaStreamWaitEvent(ARcommStream, ARcompEvent, 0));
         void* recvCompbuff = (char*) aRbuff + recvcount * comm->nRanks * ncclTypeSize(datatype) + i * compSendCount * comm->nRanks * ncclTypeSize(compDatatype);
@@ -962,7 +967,7 @@ ncclResult_t ncclAllReduceCompTripleShot(const void* sendbuff, void* recvbuff, s
 
   size_t totalSendBytes = 2 * (nRanks + nNodes) * recvcount * ncclTypeSize(datatype);
   NCCLCHECK(cocclBuffAlloc(&aRbuff, totalSendBytes, comm));
-  NCCLCHECK(ncclCompress(sendbuff, &aRbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, 
+  NCCLCHECK(ncclCompress(sendbuff, &aRbuff, recvcount, datatype, &compSendCount, &compDatatype, nRanks, comm->rank,
       ncclCommOp_t::AllReduce_Inter, stream));
 
   void* intraSendCompbuff = aRbuff;
@@ -1073,8 +1078,8 @@ ncclResult_t ncclAllReduceCompTripleShotTLOverlap(const void* sendbuff, void* re
       void* sbuff = (char*)sendbuff + i * recvcount / pipelineDepth * nRanks * ncclTypeSize(datatype);
       void* intraSendCompbuff = (char*) intrabuff + i * recvcount / pipelineDepth * nRanks * ncclTypeSize(datatype);
   
-      NCCLCHECK(ncclCompress(sbuff, &intraSendCompbuff, recvcount / pipelineDepth, datatype, &compSendCount, 
-                                &compDatatype, nRanks, ncclCommOp_t::AllReduce_Inter, ARcompStream));
+      NCCLCHECK(ncclCompress(sbuff, &intraSendCompbuff, recvcount / pipelineDepth, datatype, &compSendCount,
+                                &compDatatype, nRanks, comm->rank, ncclCommOp_t::AllReduce_Inter, ARcompStream));
   
       CUDACHECK(cudaEventRecord(ARcompEvent, ARcompStream));  
       CUDACHECK(cudaStreamWaitEvent(ARcommStream, ARcompEvent, 0));
@@ -1234,7 +1239,7 @@ ncclResult_t ncclSendComp(const void* sendbuff, size_t count, ncclDataType_t dat
   NCCLCHECK(cocclBuffAlloc(buff, totalSendBytes, sendComm));
 
   
-  NCCLCHECK(ncclCompress(sendbuff, buff, count, datatype, &((*hMeta)->compCount), &((*hMeta)->compDatatype), 1, 
+  NCCLCHECK(ncclCompress(sendbuff, buff, count, datatype, &((*hMeta)->compCount), &((*hMeta)->compDatatype), 1, comm->rank,
       compop, sendStream));
   CUDACHECK(cudaMemcpyAsync(*dMeta, *hMeta, sizeof(compMeta_t), cudaMemcpyHostToDevice, sendStream));
   CUDACHECK(cudaStreamSynchronize(sendStream));

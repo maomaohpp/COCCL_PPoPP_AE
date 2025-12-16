@@ -9,7 +9,7 @@
  #include "enqueue.h"
  #include "nccl.h"
  
- extern int64_t CompEnableThreshold;
+ extern size_t CompEnableThreshold;
  extern bool enableAllGatherComp;
  NCCL_API(ncclResult_t, ncclAllGather, const void* sendbuff, void* recvbuff, size_t sendcount,
      ncclDataType_t datatype, ncclComm_t comm, cudaStream_t stream);
@@ -164,7 +164,8 @@
      {0, NVTX_PAYLOAD_ENTRY_TYPE_SIZE, "Bytes"},
      {0, NVTX_PAYLOAD_ENTRY_TYPE_INT, "Peer rank", nullptr, 0, offsetof(NvtxParamsSendRecv, peer)}
  };
- 
+ extern bool enableSendRecvComp;
+
  
  NCCL_API(ncclResult_t, ncclSend, const void* sendbuff, size_t count, ncclDataType_t datatype, int peer,
      ncclComm_t comm, cudaStream_t stream);
