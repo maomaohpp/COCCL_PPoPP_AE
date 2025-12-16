@@ -162,6 +162,7 @@ bool enableReduceScatterComp = false;
 bool enableSendRecvComp = false;
 bool enableCheck = false;
 bool enableTimer = false;
+size_t CompEnableThreshold = 0;
 NCCL_PARAM(CompEnableThreshold, "COMPRESS_ENABLE_THRESHOLD", 0);
 
 
@@ -231,7 +232,7 @@ static void loadCompressors(const ncclComm_t comm) {
     if(isTimer && strcmp(isTimer, "1") == 0){
         enableTimer = true;
     }
-    int64_t CompEnableThreshold = (int64_t) ncclParamCompEnableThreshold();
+    CompEnableThreshold = (size_t) ncclParamCompEnableThreshold();
 
     pthread_mutex_unlock(&compressorLibLock);
 
